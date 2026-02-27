@@ -20,17 +20,54 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { messages, deployment, apiVersion } = body;
-
-    if (!messages || !Array.isArray(messages)) {
-      return new Response(
-        JSON.stringify({ error: "messages array is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const { type, patientName, records, messages, deployment, apiVersion } = body;
 
     const deploymentName = deployment || "gpt-4o";
     const version = apiVersion || "2024-12-01-preview";
+
+    let aiMessages: { role: string; content: string }[];
+
+    if (type === "summary") {
+      aiMessages = [
+        {
+          role: "system",
+          content: `You are a medical AI assistant. Summarize the following medical records for a doctor reviewing patient "${patientName}".
+Focus ONLY on medical conditions, diagnoses, treatments, and clinical notes found in the provided records.
+DO NOT include any personal data like date of birth, place of birth, address, phone number, or email.
+DO NOT make up or infer any information that is not explicitly in the records.
+Present the summary in a clear, organized format using markdown with headers and bullet points.
+Be concise but thorough about medical history. If there are no records, say so.`,
+        },
+        {
+          role: "user",
+          content: `Here are the medical records:\n${records}\n\nPlease provide a comprehensive medical summary based ONLY on these records.`,
+        },
+      ];
+    } else if (type === "chat") {
+      aiMessages = [
+        {
+          role: "system",
+          content: `You are a medical AI assistant helping a doctor with questions about patient "${patientName}".
+Here are the patient's medical records:
+${records}
+
+Answer the doctor's questions based ONLY on these records.
+DO NOT reveal personal data like date of birth, place of birth, address, phone, or email.
+DO NOT make up or infer any information that is not explicitly in the records.
+If the answer cannot be found in the records, say so clearly.
+Focus only on medical information. Be helpful, accurate, and concise.`,
+        },
+        ...(messages || []).map((m: { role: string; content: string }) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      ];
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Invalid type. Use 'summary' or 'chat'." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const url = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${version}`;
 
@@ -41,8 +78,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messages,
-        ...body.options,
+        messages: aiMessages,
+        stream: true,
       }),
     });
 
@@ -55,9 +92,8 @@ serve(async (req) => {
       );
     }
 
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
     console.error("Error:", e);
