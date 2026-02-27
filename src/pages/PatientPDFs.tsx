@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, FileText, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface PDF {
   id: string;
@@ -16,6 +17,27 @@ const PatientPDFs = () => {
   const navigate = useNavigate();
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const handleDownload = async (pdf: PDF) => {
+    try {
+      setDownloading(pdf.id);
+      const response = await fetch(pdf.file_url);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pdf.file_name.endsWith(".pdf") ? pdf.file_name : `${pdf.file_name}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to download file");
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -60,15 +82,19 @@ const PatientPDFs = () => {
                   <p className="font-medium text-foreground text-sm">{pdf.file_name}</p>
                   <p className="text-xs text-muted-foreground">{new Date(pdf.uploaded_at).toLocaleDateString()}</p>
                 </a>
-                <a
-                  href={pdf.file_url}
-                  download={pdf.file_name}
-                  className="flex-shrink-0"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-primary hover:text-primary/80 flex-shrink-0"
+                  onClick={() => handleDownload(pdf)}
+                  disabled={downloading === pdf.id}
                 >
-                  <Button variant="ghost" size="icon" className="text-primary hover:text-primary/80">
+                  {downloading === pdf.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
                     <Download className="h-4 w-4" />
-                  </Button>
-                </a>
+                  )}
+                </Button>
               </div>
             ))}
           </div>
