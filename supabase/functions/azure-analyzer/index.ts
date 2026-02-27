@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import OpenAI from "npm:openai@4";
+import { AzureOpenAI } from "npm:openai@4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,11 +26,11 @@ serve(async (req) => {
     const deploymentName = deployment || "gpt-4o";
     const version = apiVersion || "2024-12-01-preview";
 
-    const client = new OpenAI({
+    const client = new AzureOpenAI({
       apiKey: AZURE_OPENAI_API_KEY,
-      baseURL: `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}`,
-      defaultQuery: { "api-version": version },
-      defaultHeaders: { "api-key": AZURE_OPENAI_API_KEY },
+      endpoint: AZURE_OPENAI_ENDPOINT,
+      deployment: deploymentName,
+      apiVersion: version,
     });
 
     let aiMessages: OpenAI.ChatCompletionMessageParam[];
