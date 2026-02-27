@@ -97,9 +97,11 @@ const PatientDetails = () => {
           <GripVertical className="h-5 w-5 text-muted-foreground" />
         </div>
 
-        {/* Chat panel */}
-        <div style={{ width: chatWidth }} className="flex-shrink-0 p-4 pl-0">
-          <PatientChat patientId={id!} patientName={patient?.full_name || ""} records={records} />
+        {/* Chat panel - sticky, full height */}
+        <div style={{ width: chatWidth }} className="flex-shrink-0 flex flex-col h-full">
+          <div className="flex-1 min-h-0 p-4 pl-0">
+            <PatientChat patientId={id!} patientName={patient?.full_name || ""} records={records} />
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PDF {
@@ -46,19 +46,30 @@ const PatientPDFs = () => {
         ) : (
           <div className="space-y-3">
             {pdfs.map(pdf => (
-              <a
+              <div
                 key={pdf.id}
-                href={pdf.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-3 bg-card rounded-xl p-4 border border-border hover:healthcare-shadow transition-shadow"
               >
                 <FileText className="h-5 w-5 text-primary" />
-                <div className="flex-1">
+                <a
+                  href={pdf.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 min-w-0"
+                >
                   <p className="font-medium text-foreground text-sm">{pdf.file_name}</p>
                   <p className="text-xs text-muted-foreground">{new Date(pdf.uploaded_at).toLocaleDateString()}</p>
-                </div>
-              </a>
+                </a>
+                <a
+                  href={pdf.file_url}
+                  download={pdf.file_name}
+                  className="flex-shrink-0"
+                >
+                  <Button variant="ghost" size="icon" className="text-primary hover:text-primary/80">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </a>
+              </div>
             ))}
           </div>
         )}
