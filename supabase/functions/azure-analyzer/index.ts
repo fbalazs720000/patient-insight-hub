@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import OpenAI from "npm:openai@4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,14 @@ serve(async (req) => {
     const deploymentName = deployment || "gpt-4o";
     const version = apiVersion || "2024-12-01-preview";
 
-    let aiMessages: { role: string; content: string }[];
+    const client = new OpenAI({
+      apiKey: AZURE_OPENAI_API_KEY,
+      baseURL: `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}`,
+      defaultQuery: { "api-version": version },
+      defaultHeaders: { "api-key": AZURE_OPENAI_API_KEY },
+    });
+
+    let aiMessages: OpenAI.ChatCompletionMessageParam[];
 
     if (type === "summary") {
       aiMessages = [
@@ -58,7 +66,7 @@ If the answer cannot be found in the records, say so clearly.
 Focus only on medical information. Be helpful, accurate, and concise.`,
         },
         ...(messages || []).map((m: { role: string; content: string }) => ({
-          role: m.role,
+          role: m.role as "user" | "assistant",
           content: m.content,
         })),
       ];
@@ -69,30 +77,30 @@ Focus only on medical information. Be helpful, accurate, and concise.`,
       );
     }
 
-    const url = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${version}`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "api-key": AZURE_OPENAI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: aiMessages,
-        stream: true,
-      }),
+    const stream = await client.chat.completions.create({
+      model: deploymentName,
+      messages: aiMessages,
+      stream: true,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Azure OpenAI error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "Azure OpenAI request failed", status: response.status }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const encoder = new TextEncoder();
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            const data = JSON.stringify(chunk);
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.error(err);
+        }
+      },
+    });
 
-    return new Response(response.body, {
+    return new Response(readableStream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
