@@ -1,0 +1,4 @@
+project_id = "fowdcozoliodfpvmsdxk"
+
+[functions.patient-ai]
+verify_jwt = false
