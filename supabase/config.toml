@@ -2,3 +2,6 @@ project_id = "fowdcozoliodfpvmsdxk"
 
 [functions.patient-ai]
 verify_jwt = false
+
+[functions.azure-analyzer]
+verify_jwt = false
